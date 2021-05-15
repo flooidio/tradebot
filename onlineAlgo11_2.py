@@ -29,7 +29,7 @@ class MyWebsocketClient(cbpro.WebsocketClient):
         print("WS datafeed closed, attempting restart")
         wsClient.start()
         time.sleep(60)      # give time for wsClient to start datafeed
-        dataframe = dataframe.append([wsClient.data]*259200, ignore_index=True) # pre-load dataframe
+        dataframe = dataframe.append([wsClient.data]*280800, ignore_index=True) # pre-load dataframe
         trading_mwe(symbol, amount, position, bar, min_bars)
         return
 
@@ -138,10 +138,10 @@ if __name__ == '__main__':
     '''
 
     symbol = 'BTC-USD'
-    bar = '259200s'      # 15s is for testing; reset to trading frequency
+    bar = '21600s'      # 15s is for testing; reset to trading frequency
     amount = 25.17      # amount to be traded in $USD - $50 minimum
     position = 0        # beginning, neutral, position
-    lags = 5            # number of lags for features data
+    lags = 13            # number of lags for features data
 
     # minumum number of resampled bars required for the first predicted value (& first trade)
     min_bars = lags + 1
@@ -159,7 +159,7 @@ if __name__ == '__main__':
             # start trading
             wsClient.start()
             time.sleep(60)      # give time for wsClient to start datafeed
-            dataframe = dataframe.append([wsClient.data]*1399680, ignore_index=True) # pre-load dataframe
+            dataframe = dataframe.append([wsClient.data]*280800, ignore_index=True) # pre-load dataframe
             trading_mwe(symbol, amount, position, bar, min_bars)
 
     except KeyboardInterrupt:
@@ -169,11 +169,11 @@ if __name__ == '__main__':
         print('Error - restarting program')
         wsClient.start()
         time.sleep(60)      # give time for wsClient to start datafeed
-        dataframe = dataframe.append([wsClient.data]*1399680, ignore_index=True) # pre-load dataframe
+        dataframe = dataframe.append([wsClient.data]*280800, ignore_index=True) # pre-load dataframe
         trading_mwe(symbol, amount, position, bar, min_bars)
     else:
         print('Restarting program')
         wsClient.start()
         time.sleep(60)      # give time for wsClient to start datafeed
-        dataframe = dataframe.append([wsClient.data]*1399680, ignore_index=True) # pre-load dataframe
+        dataframe = dataframe.append([wsClient.data]*280800, ignore_index=True) # pre-load dataframe
         trading_mwe(symbol, amount, position, bar, min_bars)
