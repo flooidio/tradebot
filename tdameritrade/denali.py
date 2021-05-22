@@ -80,50 +80,52 @@ def dict2json(data:dict, filename:str):
     f.close()
     return
 
-# Define credentials
-client_id =  os.environ.get('autoTrader')                            # api key
-client_secret = os.environ.get('autoTraderToken')                    # refresh token
-redirect_uri = 'https://api.tdameritrade.com/v1/oauth2/token'    # redirect uri - required for access token request
-token_url = 'https://api.tdameritrade.com/v1/oauth2/token'       # token url - issues access tokens
+if __name__ == '__main__':
 
-base_url = 'https://api.tdameritrade.com/v1/marketdata'
+    # Define credentials
+    client_id =  os.environ.get('autoTrader')                            # api key
+    client_secret = os.environ.get('autoTraderToken')                    # refresh token
+    redirect_uri = 'https://api.tdameritrade.com/v1/oauth2/token'    # redirect uri - required for access token request
+    token_url = 'https://api.tdameritrade.com/v1/oauth2/token'       # token url - issues access tokens
 
-# Instantiate a client to request an access token
+    base_url = 'https://api.tdameritrade.com/v1/marketdata'
 
-# this requires a previously issued refresh token
-# stored as an environment variable, e.g. client_secret = os.environ.get('autoTraderToken')
+    # Instantiate a client to request an access token
 
-c = Client(token_endpoint=token_url, resource_endpoint=base_url, client_id=client_id, \
-           client_secret=client_secret)
+    # this requires a previously issued refresh token
+    # stored as an environment variable, e.g. client_secret = os.environ.get('autoTraderToken')
 
-# Request an access token
-# Requests are throttled to 120 requests / minute or 1 request every 0.5 sec
-# Excessive token requests will be discouraged by TD Ameritrade - i.e. rate limiting by IP address, etc.
+    c = Client(token_endpoint=token_url, resource_endpoint=base_url, client_id=client_id, \
+               client_secret=client_secret)
 
-c.request_token(grant_type='refresh_token', refresh_token=client_secret, redirect_uri=redirect_uri)
+    # Request an access token
+    # Requests are throttled to 120 requests / minute or 1 request every 0.5 sec
+    # Excessive token requests will be discouraged by TD Ameritrade - i.e. rate limiting by IP address, etc.
+
+    c.request_token(grant_type='refresh_token', refresh_token=client_secret, redirect_uri=redirect_uri)
 
 
-# Price History API Request
-# ref for stocks: https://www.barchart.com/stocks/most-active/price-volume-leaders
-symbol = 'SPY'
+    # Price History API Request
+    # ref for stocks: https://www.barchart.com/stocks/most-active/price-volume-leaders
+    symbol = 'SPY'
 
-data1 = api_pricehistory(symbol)
+    data1 = api_pricehistory(symbol)
 
-dict2json(data1, "price_history.json")
+    dict2json(data1, "price_history.json")
 
-# Options Chain API Request
-# ref for options symbols: https://www.barchart.com/options/most-active/stocks
-# ref for API https://developer.tdameritrade.com/option-chains/apis/get/marketdata/chains
-symbol = 'SPY'
-strikeCount = 10
-includeQuotes = True
-strategy = 'ANALYTICAL'
-interval = 3
-options_range = 'ALL'
-fromDate = '2021-03-31'
-toDate = '2021-05-01'
-expMonth = 'APR'
+    # Options Chain API Request
+    # ref for options symbols: https://www.barchart.com/options/most-active/stocks
+    # ref for API https://developer.tdameritrade.com/option-chains/apis/get/marketdata/chains
+    symbol = 'SPY'
+    strikeCount = 10
+    includeQuotes = True
+    strategy = 'SINGLE'
+    interval = 3
+    options_range = 'ALL'
+    fromDate = '2021-05-01'
+    toDate = '2021-06-05'
+    expMonth = 'ALL'
 
-data2 = api_chains(symbol, strikeCount, includeQuotes, strategy, interval, options_range, fromDate, toDate, expMonth)
+    data2 = api_chains(symbol, strikeCount, includeQuotes, strategy, interval, options_range, fromDate, toDate, expMonth)
 
-dict2json(data2, "opt_chain.json")
+    dict2json(data2, "opt_chain.json")
