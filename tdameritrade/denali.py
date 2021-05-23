@@ -1,6 +1,7 @@
 '''
 # Denali: TD Ameritrade OAuth2 Requests
 '''
+import datetime
 import os
 import json
 import csv
@@ -30,6 +31,9 @@ import pandas as pd
 '''
 from sanction import Client
 import time
+import toml
+
+
 
 # Background info for Sanction and its functions:
 # https://sanction.readthedocs.io/en/latest/
@@ -65,7 +69,6 @@ def api_chains(symbol, strikeCount, includeQuotes, strategy, interval, options_r
                                  options_range, fromDate, toDate, expMonth)
 
     url = url+querystring
-
     headers = {'Authorization': 'Bearer {0}'.format(c.access_token)}
 
     # API requests are throttled to 120 requests / minute or 1 request every 0.5 sec
@@ -81,11 +84,19 @@ def dict2json(data:dict, filename:str):
     return
 
 if __name__ == '__main__':
-
+    # override existing variable in the environment
     # Define credentials
     client_id =  os.environ.get('autoTrader')                            # api key
-    client_secret = os.environ.get('autoTraderToken')                    # refresh token
-    redirect_uri = 'https://api.tdameritrade.com/v1/oauth2/token'    # redirect uri - required for access token request
+    client_secret = os.environ.get('autoTraderToken')
+    redirect_uri = 'https://api.tdameritrade.com/v1/oauth2/token' # refresh token
+
+    # However, if there is a .config file, use this instead of os.environ
+    if os.path.exists('.config'):
+        config = toml.load(".config")
+        client_id = config['TDA']['client_id']
+        client_secret = config['TDA']['refresh_token']
+        redirect_uri = config['TDA']['redirect_uri']
+
     token_url = 'https://api.tdameritrade.com/v1/oauth2/token'       # token url - issues access tokens
 
     base_url = 'https://api.tdameritrade.com/v1/marketdata'
@@ -107,25 +118,25 @@ if __name__ == '__main__':
 
     # Price History API Request
     # ref for stocks: https://www.barchart.com/stocks/most-active/price-volume-leaders
-    symbol = 'SPY'
+    symbol = '$SPX.X'
 
     data1 = api_pricehistory(symbol)
 
-    dict2json(data1, "price_history.json")
+    dict2json(data1, f"{symbol}-{datetime.date.today()}-price-hist.json")
 
     # Options Chain API Request
     # ref for options symbols: https://www.barchart.com/options/most-active/stocks
     # ref for API https://developer.tdameritrade.com/option-chains/apis/get/marketdata/chains
-    symbol = 'SPY'
-    strikeCount = 10
+    symbol = '$SPX.X'
+    strikeCount = 200
     includeQuotes = True
     strategy = 'SINGLE'
-    interval = 3
+    interval = 0
     options_range = 'ALL'
-    fromDate = '2021-05-01'
+    fromDate = '2021-05-1'
     toDate = '2021-06-05'
     expMonth = 'ALL'
 
     data2 = api_chains(symbol, strikeCount, includeQuotes, strategy, interval, options_range, fromDate, toDate, expMonth)
 
-    dict2json(data2, "opt_chain.json")
+    dict2json(data2, f"{symbol}-{datetime.date.today()}-opt-chain.json")
