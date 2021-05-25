@@ -71,12 +71,11 @@ def api_chains(symbol, strikeCount, includeQuotes, strategy, interval, options_r
 
     # API requests are throttled to 120 requests / minute or 1 request every 0.5 sec
     data = c.request(url=url, headers=headers)
-    time.sleep(120)  # 120 sec delay per required API request rate >= 0.5 sec
 
     return data
 
 def dict2json(data:dict, filename:str):
-    with open(filename, "w") as f:
+    with open(filename, "a") as f:
         json.dump(data, f)
     f.close()
     return
@@ -114,25 +113,39 @@ if __name__ == '__main__':
     # ref for stocks: https://www.barchart.com/stocks/most-active/price-volume-leaders
     symbol = '$SPX.X'
 
-    data1 = api_pricehistory(symbol)
+    #data1 = api_pricehistory(symbol)
 
-    dict2json(data1, f"{symbol}-{datetime.now(timezone.utc)}-price-hist.json")
+    today = datetime.now()
+    #dict2json(data1, f"{symbol}-{today.strftime('%m%d%y-%H%M')}-price-hist.json")
 
     # Options Chain API Request
     # ref for options symbols: https://www.barchart.com/options/most-active/stocks
     # ref for API https://developer.tdameritrade.com/option-chains/apis/get/marketdata/chains
     data2 = {} # empty dictionary to update from api_chains()
-    while True:
-        symbol = '$SPX.X'
-        strikeCount = 200
-        includeQuotes = True
-        strategy = 'SINGLE'
-        interval = 0
-        options_range = 'ALL'
-        fromDate = date.today()
-        toDate = date.today()+timedelta(days=60)
-        expMonth = 'ALL'
+    print(f"Running option capture for {symbol}: ")
+    with open(f"data/{symbol}-{today.strftime('%m%d%y-%H%M')}-opt-chain.json", 'a+', newline='', encoding='utf-8') as outfile:
+        while True:
+            symbol = '$SPX.X'
+            strikeCount = 50
+            includeQuotes = True
+            strategy = 'SINGLE'
+            interval = 0
+            options_range = '50'
+            fromDate = date.today()
+            toDate = date.today()+timedelta(days=3)
+            expMonth = 'ALL'
 
-        data2.update(api_chains(symbol, strikeCount, includeQuotes, strategy, interval, options_range, fromDate, toDate, expMonth), time_stored=time.time_ns())
+            data2 = api_chains(symbol, strikeCount, includeQuotes, strategy, interval, options_range, fromDate, toDate, expMonth)
+            u_last = data2['underlying']['last']
+            u_volume = data2['underlying']['totalVolume']
+            put_options = [[*fields.values()] for k1, exp in data2['putExpDateMap'].items() for k2, strike in exp.items() for fields in strike]
+            call_options = [[*fields.values()] for k1, exp in data2['callExpDateMap'].items() for k2, strike in exp.items() for fields in strike]
+            options = put_options + call_options
 
-        dict2json(data2, f"{symbol}-{datetime.now(timezone.utc)}-opt-chain.json")
+            # using csv.writer method from CSV package
+            write = csv.writer(outfile)
+            write.writerows(options)
+            print(".",end='')
+
+            time.sleep(5)  # 120 sec delay per required API request rate >= 0.5 sec
+            #dict2json(data2, f"{symbol}-{today.strftime('%m%d%y-%H%M')}-opt-chain.json")
