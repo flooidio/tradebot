@@ -1,7 +1,7 @@
 '''
 # Denali: TD Ameritrade OAuth2 Requests
 '''
-import datetime
+from datetime import datetime, date, time, timezone, timedelta
 import os
 import json
 import csv
@@ -33,8 +33,6 @@ from sanction import Client
 import time
 import toml
 
-
-
 # Background info for Sanction and its functions:
 # https://sanction.readthedocs.io/en/latest/
 # https://docs.python.org/2.6/library/urllib2.html
@@ -56,7 +54,7 @@ def api_pricehistory(symbol):
 
     # API requests are throttled to 120 requests / minute or 1 request every 0.5 sec
     data = c.request(url=url, headers=headers)
-    time.sleep(0.5)  # 0.5 sec delay per required API request rate <= 0.5 sec
+    time.sleep(60)  # 60 sec delay per required API request rate >= 0.5 sec
 
     return data
 
@@ -73,7 +71,7 @@ def api_chains(symbol, strikeCount, includeQuotes, strategy, interval, options_r
 
     # API requests are throttled to 120 requests / minute or 1 request every 0.5 sec
     data = c.request(url=url, headers=headers)
-    time.sleep(0.5)  # 0.5 sec delay per required API request rate <= 0.5 sec
+    time.sleep(120)  # 120 sec delay per required API request rate >= 0.5 sec
 
     return data
 
@@ -86,8 +84,8 @@ def dict2json(data:dict, filename:str):
 if __name__ == '__main__':
     # override existing variable in the environment
     # Define credentials
-    client_id =  os.environ.get('autoTrader')                            # api key
-    client_secret = os.environ.get('autoTraderToken')
+    client_id =  os.environ.get('TRADEBOT_KEY')                            # api key
+    client_secret = os.environ.get('TRADEBOT_TOKEN')
     redirect_uri = 'https://api.tdameritrade.com/v1/oauth2/token' # refresh token
 
     # However, if there is a .config file, use this instead of os.environ
@@ -105,16 +103,12 @@ if __name__ == '__main__':
 
     # this requires a previously issued refresh token
     # stored as an environment variable, e.g. client_secret = os.environ.get('autoTraderToken')
-
     c = Client(token_endpoint=token_url, resource_endpoint=base_url, client_id=client_id, \
                client_secret=client_secret)
-
     # Request an access token
     # Requests are throttled to 120 requests / minute or 1 request every 0.5 sec
     # Excessive token requests will be discouraged by TD Ameritrade - i.e. rate limiting by IP address, etc.
-
     c.request_token(grant_type='refresh_token', refresh_token=client_secret, redirect_uri=redirect_uri)
-
 
     # Price History API Request
     # ref for stocks: https://www.barchart.com/stocks/most-active/price-volume-leaders
@@ -122,21 +116,23 @@ if __name__ == '__main__':
 
     data1 = api_pricehistory(symbol)
 
-    dict2json(data1, f"{symbol}-{datetime.date.today()}-price-hist.json")
+    dict2json(data1, f"{symbol}-{datetime.now(timezone.utc)}-price-hist.json")
 
     # Options Chain API Request
     # ref for options symbols: https://www.barchart.com/options/most-active/stocks
     # ref for API https://developer.tdameritrade.com/option-chains/apis/get/marketdata/chains
-    symbol = '$SPX.X'
-    strikeCount = 200
-    includeQuotes = True
-    strategy = 'SINGLE'
-    interval = 0
-    options_range = 'ALL'
-    fromDate = '2021-05-1'
-    toDate = '2021-06-05'
-    expMonth = 'ALL'
+    data2 = {} # empty dictionary to update from api_chains()
+    while True:
+        symbol = '$SPX.X'
+        strikeCount = 200
+        includeQuotes = True
+        strategy = 'SINGLE'
+        interval = 0
+        options_range = 'ALL'
+        fromDate = date.today()
+        toDate = date.today()+timedelta(days=60)
+        expMonth = 'ALL'
 
-    data2 = api_chains(symbol, strikeCount, includeQuotes, strategy, interval, options_range, fromDate, toDate, expMonth)
+        data2.update(api_chains(symbol, strikeCount, includeQuotes, strategy, interval, options_range, fromDate, toDate, expMonth), time_stored=time.time_ns())
 
-    dict2json(data2, f"{symbol}-{datetime.date.today()}-opt-chain.json")
+        dict2json(data2, f"{symbol}-{datetime.now(timezone.utc)}-opt-chain.json")
