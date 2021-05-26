@@ -123,6 +123,7 @@ if __name__ == '__main__':
     # ref for API https://developer.tdameritrade.com/option-chains/apis/get/marketdata/chains
     data2 = {} # empty dictionary to update from api_chains()
     print(f"Running option capture for {symbol}: ")
+    col = 1
     with open(f"data/{symbol}-{today.strftime('%m%d%y-%H%M')}-opt-chain.json", 'a+', newline='', encoding='utf-8') as outfile:
         while True:
             symbol = '$SPX.X'
@@ -134,8 +135,14 @@ if __name__ == '__main__':
             fromDate = date.today()
             toDate = date.today()+timedelta(days=3)
             expMonth = 'ALL'
-
-            data2 = api_chains(symbol, strikeCount, includeQuotes, strategy, interval, options_range, fromDate, toDate, expMonth)
+            data2 = {}
+            try:
+                data2 = api_chains(symbol, strikeCount, includeQuotes, strategy, interval, options_range, fromDate, toDate, expMonth)
+            except:
+                print("E", end='')
+                c.request_token(grant_type='refresh_token', refresh_token=client_secret, redirect_uri=redirect_uri)
+                #time.sleep(60)
+                continue
             u_last = data2['underlying']['last']
             u_volume = data2['underlying']['totalVolume']
             put_options = [[*fields.values()] for k1, exp in data2['putExpDateMap'].items() for k2, strike in exp.items() for fields in strike]
@@ -145,7 +152,11 @@ if __name__ == '__main__':
             # using csv.writer method from CSV package
             write = csv.writer(outfile)
             write.writerows(options)
+            if col >= 100:
+                col = 0
+                print("")
+            col += 1
             print(".",end='')
 
-            time.sleep(5)  # 120 sec delay per required API request rate >= 0.5 sec
+            time.sleep(30)  # 120 sec delay per required API request rate >= 0.5 sec
             #dict2json(data2, f"{symbol}-{today.strftime('%m%d%y-%H%M')}-opt-chain.json")
