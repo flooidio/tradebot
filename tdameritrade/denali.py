@@ -124,7 +124,7 @@ if __name__ == '__main__':
     data2 = {} # empty dictionary to update from api_chains()
     print(f"Running option capture for {symbol}: ")
     col = 1
-    with open(f"data/{symbol}-{today.strftime('%m%d%y-%H%M')}-opt-chain.json", 'a+', newline='', encoding='utf-8') as outfile:
+    with open(f"data/{symbol}-{today.strftime('%m%d%y-%H%M')}-opt-chain.csv", 'a+', newline='', encoding='utf-8') as outfile:
         while True:
             symbol = '$SPX.X'
             strikeCount = 50
@@ -143,12 +143,16 @@ if __name__ == '__main__':
                 c.request_token(grant_type='refresh_token', refresh_token=client_secret, redirect_uri=redirect_uri)
                 #time.sleep(60)
                 continue
+            
+            # get underlying's price data
             u_last = data2['underlying']['last']
             u_volume = data2['underlying']['totalVolume']
-            put_options = [[*fields.values()] for k1, exp in data2['putExpDateMap'].items() for k2, strike in exp.items() for fields in strike]
-            call_options = [[*fields.values()] for k1, exp in data2['callExpDateMap'].items() for k2, strike in exp.items() for fields in strike]
-            options = put_options + call_options
 
+            # save options chain data
+            put_options = [[u_last, u_volume,*fields.values()] for k1, exp in data2['putExpDateMap'].items() for k2, strike in exp.items() for fields in strike]
+            call_options = [[u_last, u_volume,*fields.values()] for k1, exp in data2['callExpDateMap'].items() for k2, strike in exp.items() for fields in strike]
+            options = put_options + call_options
+            
             # using csv.writer method from CSV package
             write = csv.writer(outfile)
             write.writerows(options)
@@ -157,6 +161,5 @@ if __name__ == '__main__':
                 print("")
             col += 1
             print(".",end='')
-
-            time.sleep(30)  # 120 sec delay per required API request rate >= 0.5 sec
-            #dict2json(data2, f"{symbol}-{today.strftime('%m%d%y-%H%M')}-opt-chain.json")
+            
+            time.sleep(30)
