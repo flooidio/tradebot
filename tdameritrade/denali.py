@@ -147,8 +147,8 @@ if __name__ == '__main__':
     #data1 = api_pricehistory(symbol)
 
     today = dt.now()
-    marketStart = dt.combine(date.today(), datetime.time(6, 29))
-    marketEnd =  dt.combine(date.today(), datetime.time(13, 1))
+    marketStart = dt.combine(date.today(), datetime.time(0, 2))
+    marketEnd =  dt.combine(date.today(), datetime.time(0, 3))
     if today > marketStart and today < marketEnd:
         print("Market open! :)")
         market_open = True
@@ -195,6 +195,8 @@ if __name__ == '__main__':
     while True:
         # if Auto is on, only write during US market hours
         today = dt.now()
+        marketStart = dt.combine(date.today(), datetime.time(6, 29))
+        marketEnd = dt.combine(date.today(), datetime.time(13, 1))
         if args.verbose: print(f"now {today} start {marketStart} end {marketEnd}")
         if today > marketStart and today < marketEnd:
             if market_open == False:
