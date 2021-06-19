@@ -1,7 +1,9 @@
 '''
 # Denali: TD Ameritrade OAuth2 Requests
 '''
-from datetime import datetime, date, time, timezone, timedelta
+import argparse
+from datetime import date, timedelta
+from datetime import datetime as dt
 import os
 import json
 import csv
@@ -32,7 +34,8 @@ import pandas as pd
 from sanction import Client
 import time
 import toml
-
+import time
+import datetime
 # Background info for Sanction and its functions:
 # https://sanction.readthedocs.io/en/latest/
 # https://docs.python.org/2.6/library/urllib2.html
@@ -80,7 +83,35 @@ def dict2json(data:dict, filename:str):
     f.close()
     return
 
+#returns a list from a dictionary only containing the specified keys
+def filter_fields(dict, keys):
+    result = [value for key,value in dict.items() if key in keys]
+    return result
+
+#check if directory exists, otherwise create it
+def ensure_dir(file_path):
+    directory = os.path.dirname(file_path)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+        print(f"created dir {directory}")
+
+def get_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--verbose','-v', help='Verbose output', action='store_true')
+    parser.add_argument('--symbol','-s', default="$SPX.X", help="What symbol do you want to trade? default: SPX")
+    parser.add_argument('--interval','-i', type=int, default=30, help="Interval to scan in secs (default: 30 secs)")
+    parser.add_argument('--days', '-d', type=int, default=7, help="Number of days to expiration. Default: 7")
+    parser.add_argument('--strikes', '-n', default="50", help="Number of strikes above and below. Default: 50")
+    parser.add_argument('--auto', '-a', action="store_true", help="Should scanner only capture quotes during US markwt trading hours? (6:30AM PST to 1PM PST)  Default: true")
+
+    args = parser.parse_args()
+    return args
+
 if __name__ == '__main__':
+    args = get_args()
+    print("Starting TDAmeritrade Scanner")
+    print(args)
+
     # override existing variable in the environment
     # Define credentials
     client_id =  os.environ.get('TRADEBOT_KEY')                            # api key
@@ -111,52 +142,105 @@ if __name__ == '__main__':
 
     # Price History API Request
     # ref for stocks: https://www.barchart.com/stocks/most-active/price-volume-leaders
-    symbol = '$SPX.X'
+    symbol = args.symbol
 
     #data1 = api_pricehistory(symbol)
 
-    today = datetime.now()
+    today = dt.now()
+    marketStart = dt.combine(date.today(), datetime.time(0, 2))
+    marketEnd =  dt.combine(date.today(), datetime.time(0, 3))
+    if today > marketStart and today < marketEnd:
+        print("Market open! :)")
+        market_open = True
+    else:
+        print("Market closed :(")
+        market_open = False
+
+    #API variables
+    symbol = args.symbol
+    strikeCount = args.strikes
+    includeQuotes = True
+    strategy = 'SINGLE'
+    interval = 0
+    options_range = 'ALL'
+    fromDate = date.today()
+    toDate = date.today() + timedelta(days=args.days)
+    expMonth = 'ALL'
+    data2 = {}
+
     #dict2json(data1, f"{symbol}-{today.strftime('%m%d%y-%H%M')}-price-hist.json")
 
     # Options Chain API Request
     # ref for options symbols: https://www.barchart.com/options/most-active/stocks
     # ref for API https://developer.tdameritrade.com/option-chains/apis/get/marketdata/chains
     data2 = {} # empty dictionary to update from api_chains()
-    print(f"Running option capture for {symbol}: ")
+
+    # == Full line ==
+    #{'putCall': 'PUT', 'symbol': 'SPXW_060721P4105', 'description': 'SPXW Jun 7 2021 4105 Put (PM) (Weekly)',
+    # 'exchangeName': 'OPR', 'bid': 0.3, 'ask': 0.4, 'last': 0.3, 'mark': 0.35, 'bidSize': 0, 'askSize': 0,
+    # 'bidAskSize': '0X0', 'lastSize': 0, 'highPrice': 0.9, 'lowPrice': 0.3, 'openPrice': 0.0, 'closePrice': 0.35,
+    # 'totalVolume': 281, 'tradeDate': None, 'tradeTimeInLong': 1622835684265, 'quoteTimeInLong': 1622838126178,
+    # 'netChange': -0.05, 'volatility': 13.992, 'delta': -0.016, 'gamma': 0.001, 'theta': -0.327, 'vega': 0.172,
+    # 'rho': -0.007, 'openInterest': 0, 'timeValue': 0.3, 'theoreticalOptionValue': 0.345, 'theoreticalVolatility': 29.0,
+    # 'optionDeliverablesList': None, 'strikePrice': 4105.0, 'expirationDate': 1623096000000, 'daysToExpiration': 1,
+    # 'expirationType': 'S', 'lastTradingDay': 1623110400000, 'multiplier': 100.0, 'settlementType': 'P',
+    # 'deliverableNote': '', 'isIndexOption': None, 'percentChange': -13.14, 'markChange': 0.0,
+    # 'markPercentChange': 1.33, 'mini': False, 'inTheMoney': False, 'nonStandard': False}
+
+    filter_keys = ['putCall','symbol', 'bid', 'ask', 'last', 'mark','totalVolume', 'quoteTimeInLong',
+                   'volatility', 'delta', 'gamma', 'theta', 'vega', 'openInterest', 'theoreticalOptionValue',
+                   'theoreticalVolatility','strikePrice']
+    # 'optionDeliverablesList': None, 'strikePrice': 4105.0, 'expirationDate': 1623096000000]
     col = 1
-    with open(f"data/{symbol}-{today.strftime('%m%d%y-%H%M')}-opt-chain.json", 'a+', newline='', encoding='utf-8') as outfile:
-        while True:
-            symbol = '$SPX.X'
-            strikeCount = 50
-            includeQuotes = True
-            strategy = 'SINGLE'
-            interval = 0
-            options_range = '50'
-            fromDate = date.today()
-            toDate = date.today()+timedelta(days=3)
-            expMonth = 'ALL'
-            data2 = {}
+    while True:
+        # if Auto is on, only write during US market hours
+        today = dt.now()
+        marketStart = dt.combine(date.today(), datetime.time(6, 29))
+        marketEnd = dt.combine(date.today(), datetime.time(13, 1))
+        if args.verbose: print(f"now {today} start {marketStart} end {marketEnd}")
+        if today > marketStart and today < marketEnd:
+            if market_open == False:
+                print("Market open! :)")
+            market_open = True
+        else:
+            if market_open == True:
+                print("Market closed :(")
+            market_open = False
+
+        if market_open:
             try:
-                data2 = api_chains(symbol, strikeCount, includeQuotes, strategy, interval, options_range, fromDate, toDate, expMonth)
+                data2 = api_chains(symbol, strikeCount, includeQuotes, strategy, interval, options_range, fromDate,
+                                   toDate, expMonth)
             except:
                 print("E", end='')
                 c.request_token(grant_type='refresh_token', refresh_token=client_secret, redirect_uri=redirect_uri)
-                #time.sleep(60)
+                # time.sleep(60)
                 continue
+
+            # get underlying's price data
             u_last = data2['underlying']['last']
             u_volume = data2['underlying']['totalVolume']
-            put_options = [[*fields.values()] for k1, exp in data2['putExpDateMap'].items() for k2, strike in exp.items() for fields in strike]
-            call_options = [[*fields.values()] for k1, exp in data2['callExpDateMap'].items() for k2, strike in exp.items() for fields in strike]
+            put_options = [[u_last, u_volume, *filter_fields(fields,filter_keys)] for k1, exp in data2['putExpDateMap'].items() for k2, strike in
+                           exp.items() for fields in strike]
+            call_options = [[u_last, u_volume, *filter_fields(fields,filter_keys)] for k1, exp in data2['callExpDateMap'].items() for k2, strike in
+                            exp.items() for fields in strike]
             options = put_options + call_options
 
             # using csv.writer method from CSV package
-            write = csv.writer(outfile)
-            write.writerows(options)
+            ensure_dir(f"data/{symbol}/{today.strftime('%y%m')}/")
+            try:
+                with open(f"data/{symbol}/{today.strftime('%y%m')}/{symbol}-{today.strftime('%y%m%d')}-opt-chain.csv", 'a+', newline='',
+                          encoding='utf-8') as outfile:
+                    write = csv.writer(outfile)
+                    write.writerows(options)
+            except:
+                print("x", end='', flush=True)
+                continue
             if col >= 100:
                 col = 0
                 print("")
             col += 1
-            print(".",end='')
+            print(".", end='', flush=True)
 
-            time.sleep(30)  # 120 sec delay per required API request rate >= 0.5 sec
-            #dict2json(data2, f"{symbol}-{today.strftime('%m%d%y-%H%M')}-opt-chain.json")
+        time.sleep(args.interval)  # 120 sec delay per required API request rate >= 0.5 sec
+        #dict2json(data2, f"{symbol}-{today.strftime('%m%d%y-%H%M')}-opt-chain.json")
