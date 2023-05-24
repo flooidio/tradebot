@@ -195,7 +195,7 @@ if __name__ == '__main__':
     while True:
         # if Auto is on, only write during US market hours
         today = dt.now()
-        marketStart = dt.combine(date.today(), datetime.time(6, 29))
+        marketStart = dt.combine(date.today(), datetime.time(6, 30))
         marketEnd = dt.combine(date.today(), datetime.time(13, 1))
         if args.verbose: print(f"now {today} start {marketStart} end {marketEnd}")
         if today > marketStart and today < marketEnd:
@@ -212,14 +212,23 @@ if __name__ == '__main__':
                 data2 = api_chains(symbol, strikeCount, includeQuotes, strategy, interval, options_range, fromDate,
                                    toDate, expMonth)
             except:
-                print("E", end='')
+                print("T", end='')
                 c.request_token(grant_type='refresh_token', refresh_token=client_secret, redirect_uri=redirect_uri)
                 # time.sleep(60)
                 continue
 
-            # get underlying's price data
-            u_last = data2['underlying']['last']
-            u_volume = data2['underlying']['totalVolume']
+            try:
+                # get underlying's price data
+                u_last = data2['underlying']['last']
+                u_volume = data2['underlying']['totalVolume']
+            except Exception as ex:
+                print("E", end='')
+                print (ex.__class__.__name__)
+                u_last = 0
+                u_volume = 0
+                time.sleep(30)
+                continue
+
             put_options = [[u_last, u_volume, *filter_fields(fields,filter_keys)] for k1, exp in data2['putExpDateMap'].items() for k2, strike in
                            exp.items() for fields in strike]
             call_options = [[u_last, u_volume, *filter_fields(fields,filter_keys)] for k1, exp in data2['callExpDateMap'].items() for k2, strike in
@@ -233,6 +242,7 @@ if __name__ == '__main__':
                           encoding='utf-8') as outfile:
                     write = csv.writer(outfile)
                     write.writerows(options)
+
             except:
                 print("x", end='', flush=True)
                 continue
@@ -243,4 +253,5 @@ if __name__ == '__main__':
             print(".", end='', flush=True)
 
         time.sleep(args.interval)  # 120 sec delay per required API request rate >= 0.5 sec
+
         #dict2json(data2, f"{symbol}-{today.strftime('%m%d%y-%H%M')}-opt-chain.json")
