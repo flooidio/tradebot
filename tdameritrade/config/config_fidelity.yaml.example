@@ -1,0 +1,53 @@
+# Fidelity - Conservative Configuration
+# Copy this file to config_fidelity.yaml and set your credentials
+# OR use environment variables (recommended)
+
+account:
+  name: "FIDELITY"
+  starting_balance: 25000.0
+
+broker:
+  paper_mode: true  # Set to false for live trading
+  # Method 1: API Key/Secret (recommended - simpler setup)
+  # Option 1a: Use environment variables (recommended - keeps credentials out of git)
+  api_key: ${SCHWAB_API_KEY}
+  api_secret: ${SCHWAB_API_SECRET}
+  # Option 1b: Set directly (NOT recommended - will be in git)
+  # api_key: "your_api_key_here"
+  # api_secret: "your_api_secret_here"
+  
+  # Method 2: OAuth2 (alternative - if you have client ID and refresh token)
+  # client_id: ${SCHWAB_CLIENT_ID}
+  # refresh_token: ${SCHWAB_REFRESH_TOKEN}
+  
+  account_id: null  # Will be auto-detected
+
+trading:
+  symbol: "SPX"
+  update_interval: 30  # seconds
+  use_vix: true
+
+risk:
+  daily_max_loss: 300.0
+  weekly_max_loss: 1500.0
+  max_open_risk: 7500.0
+  max_trades_per_day: 5
+  cooldown_minutes: 10
+  loss_cooldown_minutes: 90
+  daily_loss_pause: true
+  position_sizing:
+    method: "fixed_dollar"
+    fixed_dollar_risk: 150.0
+    atr_multiplier: 1.0
+    vix_scaling: true  # Scale with VIX
+
+strategy:
+  account_policy: "FIDELITY"  # Conservative
+  strategies:
+    butterfly:
+      exit_value: 2.5  # Wider stop (250%)
+    strangle:
+      exit_value: 2.5  # Wider stop (250%)
+
+logging:
+  log_dir: "logs"

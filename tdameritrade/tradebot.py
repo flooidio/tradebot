@@ -350,6 +350,7 @@ if __name__ == '__main__':
     print("Starting Trade Bot Back tester")
     print(args)
 
+    # Load backtest data
     bars_df = load_dataset(args)
     #fit_exit_value(args, bars_df)
     #exit()
